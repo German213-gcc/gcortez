@@ -1,11 +1,13 @@
 <?php
-include 'conexion.php';
-$sql = "SELECT id, nombre, ruta FROM imagenes ORDER BY id ASC";
-$resultado = mysqli_query($conn, $sql);
-$imagenes = [];
-while ($row = mysqli_fetch_assoc($resultado)) {
-    $imagenes[] = $row;
+include 'conexion.php'; // Asegúrate de que este use 'galeria_db'
+
+$sql = "SELECT * FROM imagenes";
+$resultado = mysqli_query($conexion, $sql);
+$fotos = [];
+
+while($fila = mysqli_fetch_assoc($resultado)) {
+    $fotos[] = $fila;
 }
-echo json_encode($imagenes);
-mysqli_close($conn);
+
+echo json_encode($fotos);
 ?>
