@@ -1,0 +1,1 @@
+Configuración de PostgreSQL: gcortez_db
