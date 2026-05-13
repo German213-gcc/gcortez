@@ -3,7 +3,7 @@ $host = "127.0.0.1";
 $port = "5432";
 $dbname = "gcortez_db";
 $user = "postgres";
-$password = "";
+$password = "12345678";
 
 try {
     // El 'connect_timeout=1' evita que el login se quede cargando infinitamente
