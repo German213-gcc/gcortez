@@ -1,29 +1,39 @@
 <?php
 session_start();
-include 'conexion.php';
+include 'conexion.php'; // Aquí ya viene definido $pdo
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    // Limpiamos los datos de entrada
-    $correo   = mysqli_real_escape_string($conexion, $_POST['correo']);
-    $password = $_POST['password'];
+    // 1. Obtenemos los datos del formulario
+    $correo = $_POST['correo'] ?? '';
+    $password = $_POST['password'] ?? '';
 
-    $sql = "SELECT * FROM usuarios WHERE correo = '$correo'";
-    $resultado = mysqli_query($conexion, $sql);
-    $usuario   = mysqli_fetch_assoc($resultado);
+    try {
+        // 2. Buscamos al usuario por correo usando PDO
+        $sql = "SELECT * FROM usuarios WHERE correo = :correo";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([':correo' => $correo]);
+        $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    // Verificamos si el usuario existe y si la contraseña coincide con el hash de la DB
-    if ($usuario && password_verify($password, $usuario['password'])) {
-        
-        // Creamos la sesión usando el nombre que aparece en tu captura (GERMAN o cortez)
-        $_SESSION['usuario'] = $usuario['nombre']; 
-        
-        // CRÍTICO: Guardamos la sesión físicamente antes del redireccionamiento
-        session_write_close(); 
-        
-        header("Location: index.php");
-        exit();
-    } else {
-        echo "<script>alert('Correo o contraseña incorrectos'); window.location='login.php';</script>";
+        // 3. Verificamos si existe el usuario y la contraseña coincide
+        // Nota: Si en tu base de datos la contraseña NO está encriptada, usa: if ($usuario && $password == $usuario['password'])
+        if ($usuario && password_verify($password, $usuario['password'])) {
+            
+            // Creamos la sesión
+            $_SESSION['usuario'] = $usuario['nombre'];
+            
+            // Guardamos sesión antes de redireccionar
+            session_write_close();
+            
+            header("Location: index.php");
+            exit();
+        } else {
+            // Si no coincide, mandamos alerta
+            echo "<script>alert('Correo o contraseña incorrectos'); window.location='login.php';</script>";
+        }
+
+    } catch (PDOException $e) {
+        // Si hay error de SQL, lo mostramos para saber qué pasa
+        die("Error en la base de datos: " . $e->getMessage());
     }
 }
 ?>

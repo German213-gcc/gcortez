@@ -1,45 +1,51 @@
 <?php
 session_start();
-include 'conexion.php'; 
+include 'conexion.php';    // MariaDB
+include 'conexion_pg.php'; // PostgreSQL (Con el timeout de 1s)
 
-// 1. Verificamos que se haya enviado el formulario por POST y exista el archivo 'foto'
-if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_FILES['foto'])) {
+// Ruta absoluta de la carpeta en Linux
+$dir_subida = "/var/www/gcortez/uploads/";
+
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['foto'])) {
     
-    // 2. Limpiamos el nombre para evitar inyecciones SQL
-    $nombre_imagen = mysqli_real_escape_string($conexion, $_POST['nombre']);
-    $archivo = $_FILES['foto']; 
+    // 1. Recibir nombre del formulario (si está vacío usa el original)
+    $nombre_visual = !empty($_POST['nombre_personalizado']) ? $_POST['nombre_personalizado'] : basename($_FILES["foto"]["name"]);
     
-    // 3. Definimos el directorio de subida
-    $directorio = 'uploads/';
-    if (!file_exists($directorio)) {
-        mkdir($directorio, 0777, true);
-    }
+    // 2. Generar nombre de archivo único para el disco duro
+    $extension = pathinfo($_FILES["foto"]["name"], PATHINFO_EXTENSION);
+    $nombre_archivo_fisico = time() . "_" . bin2hex(random_bytes(4)) . "." . $extension;
+    
+    $ruta_completa = $dir_subida . $nombre_archivo_fisico;
+    $ruta_para_db = "uploads/" . $nombre_archivo_fisico;
 
-    // 4. Creamos un nombre único para el archivo basado en el tiempo
-    $nombre_final = time() . "_" . basename($archivo['name']);
-    $ruta_completa = $directorio . $nombre_final;
+    // 3. Mover el archivo de la carpeta temporal a la final
+    if (move_uploaded_file($_FILES["foto"]["tmp_name"], $ruta_completa)) {
+        try {
+            // --- MARIADB: Guardar datos de la imagen ---
+            $stmt = $pdo->prepare("INSERT INTO imagenes (nombre, ruta) VALUES (?, ?)");
+            $stmt->execute([$nombre_visual, $ruta_para_db]);
 
-    // 5. Intentamos mover el archivo físico al servidor
-    if (move_uploaded_file($archivo['tmp_name'], $ruta_completa)) {
-        
-        // 6. Insertamos en la tabla 'imagenes' de 'galeria_db'
-        $sql = "INSERT INTO imagenes (nombre, ruta) VALUES ('$nombre_imagen', '$ruta_completa')";
-        
-        if (mysqli_query($conexion, $sql)) {
-            // Esto es lo que espera tu AJAX en index.php para mostrar el check verde
-            echo "success"; 
-        } else {
-            // Si falla la DB, mandamos código de error 500
-            http_response_code(500);
-            echo "Error en la base de datos: " . mysqli_error($conexion);
+            // --- POSTGRESQL: Registrar historial (si está activo) ---
+            if ($pdo_pg !== null) {
+                try {
+                    $st_pg = $pdo_pg->prepare("INSERT INTO historial_visitas (usuario) VALUES (?)");
+                    $st_pg->execute([$_SESSION['usuario'] ?? 'Sistema']);
+                } catch (Exception $e) {
+                    // Fallo silencioso en Postgres para no trabar la web
+                }
+            }
+
+            // Redirigir al dashboard con éxito
+            header("Location: index.php?status=success");
+            exit();
+
+        } catch (Exception $e) {
+            die("Error en Base de Datos: " . $e->getMessage());
         }
     } else {
-        // Si falla el movimiento del archivo físico
-        http_response_code(500);
-        echo "Error: No se pudo mover el archivo a la carpeta uploads.";
+        die("Error: No se pudo mover el archivo. Revisa permisos de carpeta.");
     }
 } else {
-    http_response_code(400);
-    echo "Petición inválida.";
+    header("Location: index.php");
 }
 ?>

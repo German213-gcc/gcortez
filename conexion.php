@@ -1,12 +1,14 @@
 <?php
-$host = "localhost";
-$user = "root"; // Usuario por defecto de XAMPP
-$pass = "";     // Contraseña por defecto (vacía)
-$db   = "galeria_db"; // Nombre exacto de tu captura
+$host = 'localhost';
+$db = 'galeria_db';
+$user = 'gcortez';
+$pass = '12345';
 
-$conexion = mysqli_connect($host, $user, $pass, $db);
-
-if (!$conexion) {
-    die("Error de conexión: " . mysqli_connect_error());
+try {
+    // CAMBIA $conexion por $pdo
+    $pdo = new PDO("mysql:host=$host;dbname=$db;charset=utf8", $user, $pass);
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+} catch (PDOException $e) {
+    echo "Error de conexión: " . $e->getMessage();
 }
 ?>
